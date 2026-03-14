@@ -53,6 +53,7 @@ app.include_router(gstr3b_router)
 app.include_router(gstr9_router)
 app.include_router(ledger_router)
 app.include_router(gst_return_status_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health")
