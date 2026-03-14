@@ -25,6 +25,13 @@ export interface DashboardLedgerResponse {
   monthly_totals?: Array<{ from_date: string | null; transaction_count: number; total_amount: number }>;
 }
 
+export interface DashboardSessionResponse {
+  active_sessions?: Array<Record<string, unknown>>;
+  active_count?: number;
+  expiry?: { session_expiry?: string | null; token_expiry?: string | null } | null;
+  last_refresh?: { last_refresh?: string | null } | null;
+}
+
 export interface DashboardClientsResponse {
   clients: Array<{
     client_id: number;
@@ -48,7 +55,7 @@ export const dashboardService = {
   getReturns: (gstin: string, year?: number, month?: number) =>
     request(buildUrl(`/dashboard/returns/${gstin}`, { year, month })),
 
-  getSession: (gstin: string) => request(`/dashboard/session/${gstin}`),
+  getSession: (gstin: string) => request<DashboardSessionResponse>(`/dashboard/session/${gstin}`),
 
   getClients: () => request<DashboardClientsResponse>(`/dashboard/clients`),
 };

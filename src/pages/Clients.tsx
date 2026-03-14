@@ -4,6 +4,7 @@ import { authService, dashboardService } from "@/services/api";
 import type { DashboardClientsResponse } from "@/services/api/dashboardService";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { StatusBadge } from "@/components/StatusBadge";
+import { AddClientModal } from "@/components/AddClientModal";
 import { Search, RefreshCw, ExternalLink, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,6 +14,7 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [refreshingGstin, setRefreshingGstin] = useState<string | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const clientsQuery = useApiQuery<DashboardClientsResponse>(dashboardService.getClients, []);
   const clients: ClientSession[] = clientsQuery.data?.clients ?? [];
@@ -46,7 +48,10 @@ export default function ClientsPage() {
             {clients.length} client{clients.length !== 1 ? "s" : ""} managed
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+        <button
+          onClick={() => setAddModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
           <Plus className="w-4 h-4" />
           Add Client
         </button>
@@ -124,6 +129,12 @@ export default function ClientsPage() {
           <p className="text-sm text-muted-foreground">No clients found</p>
         </div>
       )}
+
+      <AddClientModal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onSuccess={() => clientsQuery.refetch()}
+      />
     </div>
   );
 }
