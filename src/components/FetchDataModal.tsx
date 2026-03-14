@@ -48,7 +48,7 @@ export function FetchDataModal({ open, gstin, onClose, onComplete }: FetchDataMo
       { label: "GSTR-2B Data", fn: () => gstr2bService.get(gstin, year, m) },
       { label: "GSTR-3B Details", fn: () => gstr3bService.getDetails(gstin, year, m) },
       { label: "GSTR-3B Auto Liability", fn: () => gstr3bService.getAutoLiability(gstin, year, m) },
-      { label: "Ledger Balance", fn: () => ledgerService.getBalance(gstin, year, m) },
+      { label: "Ledger Balance", fn: () => ledgerService.getCashItcBalance(gstin, year, m) },
     ];
 
     setSteps(fetchSteps.map((s) => ({ label: s.label, status: "pending" })));
