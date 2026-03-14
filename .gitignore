@@ -1,2 +1,11 @@
 config.py
-sessions/*
+sessions/*.json
+
+# Local runtime data
+*.db
+*.sqlite3
+*.log
+
+# Python compiled artifacts
+*.py[cod]
+**/__pycache__/*.py[cod]
