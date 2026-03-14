@@ -6,12 +6,15 @@ import { SectionPanel } from "@/components/SectionPanel";
 import { DataTable } from "@/components/DataTable";
 import { TaxBarChart, StatusPieChart } from "@/components/Charts";
 import { LoadingState, ErrorState } from "@/components/StateViews";
+import { FetchDataModal } from "@/components/FetchDataModal";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { dashboardService, authService } from "@/services/api";
+import type { DashboardSessionResponse } from "@/services/api/dashboardService";
 import { formatCurrency, getMonthName } from "@/lib/utils";
+import { generateDashboardReport } from "@/utils/reportGenerator";
 import {
   ArrowLeft, RefreshCw, Download, IndianRupee,
-  Receipt, Wallet, AlertTriangle, FileCheck, Clock,
+  Receipt, Wallet, AlertTriangle, Clock, Database, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,6 +22,7 @@ export default function ClientDashboard() {
   const { gstin } = useParams<{ gstin: string }>();
   const navigate = useNavigate();
   const [refreshing, setRefreshing] = useState(false);
+  const [fetchModalOpen, setFetchModalOpen] = useState(false);
 
   const summary = useApiQuery(
     () => dashboardService.getSummary(gstin!),
@@ -37,6 +41,8 @@ export default function ClientDashboard() {
     [gstin]
   );
 
+  const sessionData = session.data as DashboardSessionResponse | null;
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -50,13 +56,31 @@ export default function ClientDashboard() {
     }
   };
 
+  const handleGenerateReport = () => {
+    const activeSessions = Array.isArray(sessionData?.active_sessions) ? sessionData!.active_sessions : [];
+    const activeCount = sessionData?.active_count ?? activeSessions.length;
+    generateDashboardReport({
+      gstin: gstin!,
+      sessionActive: activeCount > 0,
+      summary: summary.data,
+      ledger: ledger.data,
+      returns: returns.data,
+    });
+    toast.success("Report downloaded");
+  };
+
+  const handleFetchComplete = () => {
+    summary.refetch();
+    ledger.refetch();
+    returns.refetch();
+  };
+
   // Derive metrics from summary data
   const gstr1 = summary.data?.summary?.gstr1;
   const gstr2a = summary.data?.summary?.gstr2a_itc;
   const gstr3b = summary.data?.summary?.gstr3b_liability;
   const filingStatus = summary.data?.filing_status || [];
 
-  // Build chart data from summary
   const taxBreakdown = gstr3b
     ? [
         { name: "IGST", value: gstr3b.total_igst },
@@ -72,10 +96,10 @@ export default function ClientDashboard() {
     sgst: entry.total_sgst ?? 0,
   }));
 
-  const activeSessions = Array.isArray(session.data?.active_sessions) ? session.data?.active_sessions : [];
-  const activeCount = session.data?.active_count ?? activeSessions.length;
-  const sessionExpiry = session.data?.expiry?.session_expiry ?? null;
-  const lastRefresh = session.data?.last_refresh?.last_refresh ?? null;
+  const activeSessions = Array.isArray(sessionData?.active_sessions) ? sessionData!.active_sessions : [];
+  const activeCount = sessionData?.active_count ?? activeSessions.length;
+  const sessionExpiry = sessionData?.expiry?.session_expiry ?? null;
+  const lastRefresh = sessionData?.last_refresh?.last_refresh ?? null;
 
   const balances = ledger.data?.balances || [];
   const sumBalance = (type: string) =>
@@ -112,7 +136,7 @@ export default function ClientDashboard() {
               <h1 className="text-xl font-bold text-foreground tracking-tight font-mono">
                 {gstin}
               </h1>
-              {session.data && (
+              {sessionData && (
                 <StatusBadge
                   status={activeCount > 0 ? "active" : "expired"}
                   label={activeCount > 0 ? "Session Active" : "Session Expired"}
@@ -124,16 +148,26 @@ export default function ClientDashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setFetchModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <Database className="w-3.5 h-3.5" />
+            Fetch Data
+          </button>
+          <button
             onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh Session
+            Refresh
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-            <Download className="w-3.5 h-3.5" />
-            Export
+          <button
+            onClick={handleGenerateReport}
+            className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Report
           </button>
         </div>
       </div>
@@ -328,7 +362,7 @@ export default function ClientDashboard() {
         <SectionPanel title="Session Management" subtitle="GST API session status">
           {session.loading ? (
             <LoadingState />
-          ) : session.data ? (
+          ) : sessionData ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
               <div className="p-4 rounded-md bg-muted/50">
                 <p className="metric-label">Active Sessions</p>
@@ -355,6 +389,13 @@ export default function ClientDashboard() {
           )}
         </SectionPanel>
       </div>
+
+      <FetchDataModal
+        open={fetchModalOpen}
+        gstin={gstin!}
+        onClose={() => setFetchModalOpen(false)}
+        onComplete={handleFetchComplete}
+      />
     </div>
   );
 }
