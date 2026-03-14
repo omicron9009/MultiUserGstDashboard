@@ -28,6 +28,7 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_database_exists()
+    await create_all_tables()
     start_scheduler()
     yield
     stop_scheduler()
