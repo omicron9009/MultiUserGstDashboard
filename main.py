@@ -16,6 +16,7 @@ from routers.gstr_3B_router import router as gstr3b_router
 from routers.gstr_9_router import router as gstr9_router
 from routers.ledger_router import router as ledger_router
 from routers.gst_return_status_router import router as gst_return_status_router
+from database.init_schema import create_all_tables
 from services.session_refresh_manager import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -27,6 +28,7 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_database_exists()
+    await create_all_tables()
     start_scheduler()
     yield
     stop_scheduler()
