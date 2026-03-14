@@ -16,6 +16,7 @@ from routers.gstr_3B_router import router as gstr3b_router
 from routers.gstr_9_router import router as gstr9_router
 from routers.ledger_router import router as ledger_router
 from routers.gst_return_status_router import router as gst_return_status_router
+from routers.dashboard_router import router as dashboard_router
 from database.init_schema import create_all_tables
 from services.session_refresh_manager import start_scheduler, stop_scheduler
 
@@ -52,6 +53,7 @@ app.include_router(gstr3b_router)
 app.include_router(gstr9_router)
 app.include_router(ledger_router)
 app.include_router(gst_return_status_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health")

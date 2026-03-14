@@ -1,12 +1,8 @@
 """
 Create all ORM-defined tables in PostgreSQL if they do not already exist.
 
-Usage:
-    from database.init_schema import create_all_tables
-    await create_all_tables()
-
-This module force-imports every model package so that all 34 tables
-are registered on ``Base.metadata`` before ``create_all`` runs.
+Imports every model package so all 34 tables are registered on
+``Base.metadata`` before ``create_all`` runs.
 """
 from __future__ import annotations
 
@@ -15,8 +11,10 @@ import logging
 from .core.base import Base
 from .core.database import engine
 
-# ── Force-import every model so Base.metadata knows about all tables ──
-from .models import Client, GstSession  # noqa: F401
+# ── Force-import every model so Base.metadata registers all tables ──
+from .models.client import Client  # noqa: F401
+from .models.session import GstSession  # noqa: F401
+
 from .services.gstr1.models import (  # noqa: F401
     Gstr1AdvanceTaxRecord,
     Gstr1B2BRecord,
@@ -63,7 +61,5 @@ async def create_all_tables() -> None:
     """Issue CREATE TABLE IF NOT EXISTS for every ORM model."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info(
-        "Schema initialised – %d tables registered on Base.metadata",
-        len(Base.metadata.tables),
-    )
+    table_count = len(Base.metadata.tables)
+    logger.info("Schema initialised – %d tables registered on Base.metadata", table_count)
