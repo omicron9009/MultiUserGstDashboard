@@ -2316,6 +2316,28 @@
         }
       }
     },
+    "/dashboard/clients": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard Clients",
+        "description": "List all configured clients with their latest session metadata.",
+        "operationId": "dashboard_clients_dashboard_clients_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/dashboard/summary/{gstin}": {
       "get": {
         "tags": [
