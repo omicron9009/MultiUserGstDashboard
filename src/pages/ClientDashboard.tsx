@@ -4,10 +4,10 @@ import { MetricCard } from "@/components/MetricCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SectionPanel } from "@/components/SectionPanel";
 import { DataTable } from "@/components/DataTable";
-import { TaxBarChart, TrendLineChart, StatusPieChart } from "@/components/Charts";
+import { TaxBarChart, StatusPieChart } from "@/components/Charts";
 import { LoadingState, ErrorState } from "@/components/StateViews";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { dashboardApi, authApi } from "@/services/api";
+import { dashboardService, authService } from "@/services/api";
 import { formatCurrency, getMonthName } from "@/lib/utils";
 import {
   ArrowLeft, RefreshCw, Download, IndianRupee,
@@ -21,26 +21,26 @@ export default function ClientDashboard() {
   const [refreshing, setRefreshing] = useState(false);
 
   const summary = useApiQuery(
-    () => dashboardApi.getSummary(gstin!),
+    () => dashboardService.getSummary(gstin!),
     [gstin]
   );
   const ledger = useApiQuery(
-    () => dashboardApi.getLedger(gstin!),
+    () => dashboardService.getLedger(gstin!),
     [gstin]
   );
   const returns = useApiQuery(
-    () => dashboardApi.getReturns(gstin!),
+    () => dashboardService.getReturns(gstin!),
     [gstin]
   );
   const session = useApiQuery(
-    () => dashboardApi.getSession(gstin!),
+    () => dashboardService.getSession(gstin!),
     [gstin]
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await authApi.refreshSession(gstin!);
+      await authService.refreshSession(gstin!);
       toast.success("Session refreshed");
       session.refetch();
     } catch (err: any) {
@@ -65,13 +65,29 @@ export default function ClientDashboard() {
       ]
     : [];
 
-  // Demo monthly trend data
-  const monthlyTrend = Array.from({ length: 6 }, (_, i) => ({
-    month: getMonthName(i + 7),
-    igst: Math.round(Math.random() * 500000),
-    cgst: Math.round(Math.random() * 300000),
-    sgst: Math.round(Math.random() * 300000),
+  const monthlyTrend = (summary.data?.summary?.monthly_tax_trend || []).map((entry: any) => ({
+    month: entry.month ? getMonthName(Number(entry.month)) : "—",
+    igst: entry.total_igst ?? 0,
+    cgst: entry.total_cgst ?? 0,
+    sgst: entry.total_sgst ?? 0,
   }));
+
+  const activeSessions = Array.isArray(session.data?.active_sessions) ? session.data?.active_sessions : [];
+  const activeCount = session.data?.active_count ?? activeSessions.length;
+  const sessionExpiry = session.data?.expiry?.session_expiry ?? null;
+  const lastRefresh = session.data?.last_refresh?.last_refresh ?? null;
+
+  const balances = ledger.data?.balances || [];
+  const sumBalance = (type: string) =>
+    balances
+      .filter((entry: any) => entry.snapshot_type === type)
+      .reduce((total: number, entry: any) => total + (entry.amount || 0), 0);
+  const cashBalance = sumBalance("cash");
+  const itcBalance = sumBalance("itc");
+  const transactionCount =
+    (ledger.data?.cash_ledger?.transaction_count || 0) +
+    (ledger.data?.itc_ledger?.transaction_count || 0) +
+    (ledger.data?.liability_ledger?.transaction_count || 0);
 
   const totalLiability = gstr3b
     ? gstr3b.total_igst + gstr3b.total_cgst + gstr3b.total_sgst
@@ -98,8 +114,8 @@ export default function ClientDashboard() {
               </h1>
               {session.data && (
                 <StatusBadge
-                  status={session.data.active_sessions > 0 ? "active" : "expired"}
-                  label={session.data.active_sessions > 0 ? "Session Active" : "Session Expired"}
+                  status={activeCount > 0 ? "active" : "expired"}
+                  label={activeCount > 0 ? "Session Active" : "Session Expired"}
                 />
               )}
             </div>
@@ -287,19 +303,19 @@ export default function ClientDashboard() {
                 <div className="p-4 rounded-md bg-muted/50">
                   <p className="metric-label">Cash Balance</p>
                   <p className="text-lg font-semibold text-foreground tabular-nums">
-                    {formatCurrency(ledger.data.cash_balance?.closing || 0)}
+                    {formatCurrency(cashBalance)}
                   </p>
                 </div>
                 <div className="p-4 rounded-md bg-muted/50">
                   <p className="metric-label">ITC Balance</p>
                   <p className="text-lg font-semibold text-success tabular-nums">
-                    {formatCurrency(ledger.data.itc_balance?.closing || 0)}
+                    {formatCurrency(itcBalance)}
                   </p>
                 </div>
                 <div className="p-4 rounded-md bg-muted/50">
                   <p className="metric-label">Transactions</p>
                   <p className="text-lg font-semibold text-foreground tabular-nums">
-                    {ledger.data.transaction_count || 0}
+                    {transactionCount}
                   </p>
                 </div>
               </div>
@@ -318,19 +334,19 @@ export default function ClientDashboard() {
                 <p className="metric-label">Active Sessions</p>
                 <div className="flex items-center gap-2 mt-1">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-lg font-semibold text-foreground">{session.data.active_sessions ?? 0}</p>
+                  <p className="text-lg font-semibold text-foreground">{activeCount}</p>
                 </div>
               </div>
               <div className="p-4 rounded-md bg-muted/50">
                 <p className="metric-label">Expiry</p>
                 <p className="text-sm text-foreground mt-1">
-                  {session.data.expiry ? new Date(session.data.expiry).toLocaleString("en-IN") : "—"}
+                  {sessionExpiry ? new Date(sessionExpiry).toLocaleString("en-IN") : "—"}
                 </p>
               </div>
               <div className="p-4 rounded-md bg-muted/50">
                 <p className="metric-label">Last Refresh</p>
                 <p className="text-sm text-foreground mt-1">
-                  {session.data.last_refresh ? new Date(session.data.last_refresh).toLocaleString("en-IN") : "—"}
+                  {lastRefresh ? new Date(lastRefresh).toLocaleString("en-IN") : "—"}
                 </p>
               </div>
             </div>

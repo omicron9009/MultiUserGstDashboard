@@ -18,6 +18,16 @@ from services.dashboard.session_service import SessionService
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
+@router.get("/clients")
+async def dashboard_clients(
+    db: AsyncSession = Depends(get_db),
+):
+    """List all configured clients with their latest session metadata."""
+    svc = SessionService(db)
+    clients = await svc.get_clients_overview()
+    return {"clients": clients, "total": len(clients)}
+
+
 @router.get("/summary/{gstin}")
 async def dashboard_summary(
     gstin: str,
@@ -66,6 +76,7 @@ async def dashboard_session(
     last_refresh = await svc.get_last_refresh(gstin)
     return {
         "active_sessions": active,
+        "active_count": len(active),
         "expiry": expiry,
         "last_refresh": last_refresh,
     }

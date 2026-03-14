@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models.client import Client
@@ -82,3 +82,45 @@ class SessionService:
             "session_id": session.id,
             "last_refresh": session.last_refresh.isoformat() if session.last_refresh else None,
         }
+
+    async def get_clients_overview(self) -> list[dict[str, Any]]:
+        """Return all clients with their latest session metadata."""
+        now = datetime.now(timezone.utc)
+
+        latest_session_subq = (
+            select(
+                GstSession.client_id.label("client_id"),
+                func.max(GstSession.id).label("latest_session_id"),
+            )
+            .group_by(GstSession.client_id)
+            .subquery()
+        )
+
+        q = (
+            select(Client, GstSession)
+            .outerjoin(latest_session_subq, Client.id == latest_session_subq.c.client_id)
+            .outerjoin(GstSession, GstSession.id == latest_session_subq.c.latest_session_id)
+            .order_by(Client.gstin)
+        )
+
+        rows = (await self.db.execute(q)).all()
+        overview: list[dict[str, Any]] = []
+        for client, session in rows:
+            active = False
+            if session and (session.session_expiry is None or session.session_expiry > now):
+                active = True
+
+            overview.append(
+                {
+                    "client_id": client.id,
+                    "gstin": client.gstin,
+                    "legal_name": client.legal_name,
+                    "username": session.username if session else None,
+                    "active": active,
+                    "session_expiry": session.session_expiry.isoformat() if session and session.session_expiry else None,
+                    "token_expiry": session.token_expiry.isoformat() if session and session.token_expiry else None,
+                    "last_refresh": session.last_refresh.isoformat() if session and session.last_refresh else None,
+                }
+            )
+
+        return overview

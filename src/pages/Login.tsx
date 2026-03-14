@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { authApi } from "@/services/api";
+import { authService } from "@/services/api";
 import { LayoutDashboard, ArrowRight, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await authApi.generateOtp(username, gstin);
+      await authService.generateOtp(username, gstin);
       setStep("otp");
     } catch (err: any) {
       setError(err.message || "Failed to generate OTP");
@@ -33,7 +33,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await authApi.verifyOtp(username, gstin, otp);
+      await authService.verifyOtp(username, gstin, otp);
       login(username);
       navigate("/clients");
     } catch (err: any) {

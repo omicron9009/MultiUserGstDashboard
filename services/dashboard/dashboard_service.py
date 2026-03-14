@@ -60,7 +60,7 @@ class DashboardService:
         ).where(*filters_2a)
         gstr2a_row = (await self.db.execute(gstr2a_q)).one()
 
-        # GSTR3B liability
+        # GSTR3B liability totals
         gstr3b_q = select(
             func.coalesce(func.sum(Gstr3BDetailsRecord.taxable_value), 0).label("total_taxable"),
             func.coalesce(func.sum(Gstr3BDetailsRecord.igst), 0).label("total_igst"),
@@ -68,6 +68,32 @@ class DashboardService:
             func.coalesce(func.sum(Gstr3BDetailsRecord.sgst), 0).label("total_sgst"),
         ).where(*filters_3b)
         gstr3b_row = (await self.db.execute(gstr3b_q)).one()
+
+        # Monthly trend (latest 6 months) for charting
+        monthly_q = (
+            select(
+                Gstr3BDetailsRecord.year.label("year"),
+                Gstr3BDetailsRecord.month.label("month"),
+                func.coalesce(func.sum(Gstr3BDetailsRecord.igst), 0).label("total_igst"),
+                func.coalesce(func.sum(Gstr3BDetailsRecord.cgst), 0).label("total_cgst"),
+                func.coalesce(func.sum(Gstr3BDetailsRecord.sgst), 0).label("total_sgst"),
+            )
+            .where(Gstr3BDetailsRecord.gstin == gstin)
+            .group_by(Gstr3BDetailsRecord.year, Gstr3BDetailsRecord.month)
+            .order_by(Gstr3BDetailsRecord.year.desc(), Gstr3BDetailsRecord.month.desc())
+            .limit(6)
+        )
+        monthly_rows = (await self.db.execute(monthly_q)).all()
+        monthly_trend = [
+            {
+                "year": row.year,
+                "month": row.month,
+                "total_igst": float(row.total_igst),
+                "total_cgst": float(row.total_cgst),
+                "total_sgst": float(row.total_sgst),
+            }
+            for row in reversed(monthly_rows)
+        ]
 
         return {
             "gstin": gstin,
@@ -91,6 +117,7 @@ class DashboardService:
                 "total_cgst": float(gstr3b_row.total_cgst),
                 "total_sgst": float(gstr3b_row.total_sgst),
             },
+            "monthly_tax_trend": monthly_trend,
         }
 
     async def get_filing_status(self, gstin: str) -> list[dict[str, Any]]:

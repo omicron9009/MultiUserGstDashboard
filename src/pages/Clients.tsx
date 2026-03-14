@@ -1,31 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { authApi } from "@/services/api";
+import { authService, dashboardService } from "@/services/api";
+import type { DashboardClientsResponse } from "@/services/api/dashboardService";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Search, RefreshCw, ExternalLink, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 
-interface ClientSession {
-  gstin: string;
-  active: boolean;
-  username?: string;
-  token_expiry?: string;
-  session_expiry?: string;
-  last_refresh?: string;
-}
-
-// Demo GSTINs for when the backend isn't connected
-const DEMO_CLIENTS: ClientSession[] = [
-  { gstin: "27AABFP2335E1ZM", active: true, username: "demo_user", token_expiry: new Date(Date.now() + 3600000).toISOString(), last_refresh: new Date().toISOString() },
-  { gstin: "29AAGCR4375J1ZU", active: false, username: "client2" },
-  { gstin: "07AAACN0375P1ZT", active: true, username: "client3", token_expiry: new Date(Date.now() + 7200000).toISOString(), last_refresh: new Date(Date.now() - 3600000).toISOString() },
-];
+type ClientSession = DashboardClientsResponse["clients"][number];
 
 export default function ClientsPage() {
   const navigate = useNavigate();
-  const [clients, setClients] = useState<ClientSession[]>(DEMO_CLIENTS);
   const [search, setSearch] = useState("");
   const [refreshingGstin, setRefreshingGstin] = useState<string | null>(null);
+
+  const clientsQuery = useApiQuery<DashboardClientsResponse>(dashboardService.getClients, []);
+  const clients: ClientSession[] = clientsQuery.data?.clients ?? [];
 
   const filtered = clients.filter(
     (c) =>
@@ -36,13 +26,9 @@ export default function ClientsPage() {
   const handleRefresh = async (gstin: string) => {
     setRefreshingGstin(gstin);
     try {
-      await authApi.refreshSession(gstin);
+      await authService.refreshSession(gstin);
       toast.success(`Session refreshed for ${gstin}`);
-      // Re-fetch session status
-      const session = await authApi.getSession(gstin);
-      setClients((prev) =>
-        prev.map((c) => (c.gstin === gstin ? { ...c, ...session } : c))
-      );
+      await clientsQuery.refetch();
     } catch (err: any) {
       toast.error(err.message || "Refresh failed");
     } finally {
@@ -79,8 +65,15 @@ export default function ClientsPage() {
       </div>
 
       {/* Client Grid */}
+      {clientsQuery.error && (
+        <div className="text-sm text-destructive mb-4">{clientsQuery.error}</div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((client) => (
+        {clientsQuery.loading && (
+          <div className="col-span-full text-sm text-muted-foreground">Loading clients...</div>
+        )}
+        {!clientsQuery.loading &&
+          filtered.map((client) => (
           <div
             key={client.gstin}
             className="glass-card p-5 hover:shadow-md transition-shadow group"
@@ -125,7 +118,7 @@ export default function ClientsPage() {
         ))}
       </div>
 
-      {!filtered.length && (
+      {!clientsQuery.loading && !filtered.length && (
         <div className="text-center py-16">
           <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">No clients found</p>
