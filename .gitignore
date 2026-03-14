@@ -9,3 +9,5 @@ sessions/*.json
 # Python compiled artifacts
 *.py[cod]
 **/__pycache__/*.py[cod]
+
+node_modules
